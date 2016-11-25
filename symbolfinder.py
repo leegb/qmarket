@@ -26,25 +26,37 @@ class SymbolFinder():
         edit.returnPressed.connect(self.returnPressed)
         edit.keyPressEvent = self.keyPressEvent
         self.completer = completer
+        self.threads = []
 
     def show(self):
-
         self.edit.show()
         self.edit.setFocus()
 
         # User can supply a fixed set of results, so ask for them.
         self.textChanged('')
 
-    def textChanged(self, newText):
+    def onResultsFetched(self):
+        results = self.threads[-1].results
+        self.model.setStringList(results)
+        self.completer.complete()# Copy-pasting doesnt trigger completion
+
+    def textChanged(finder, newText):
         newText = unicode(newText)
-        for s in self.model.stringList():
+        for s in finder.model.stringList():
             if newText.lower() == unicode(s).lower():
                 return
 
-        stringList = self.onSearchString(newText) if newText else []
-        self.model.setStringList(stringList)
+        class Thread(QtCore.QThread):
+            def run(self):
+                if not newText: return
+                try: self.results = finder.onSearchString(newText)
+                except: return
 
-        self.completer.complete()# Copy-pasting doesnt trigger completion
+        thread = Thread()
+        thread.results = []
+        finder.threads.append(thread)
+        thread.finished.connect(finder.onResultsFetched)
+        thread.start()
 
     def closeEditBox(self):
         self.edit.hide()
