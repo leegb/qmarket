@@ -34,7 +34,8 @@ def strVolume(x, formatPlaces=1):
     return (formatString % formatPlaces).format(x)
 
 class Struct:
-        def __init__(self, **entries): self.__dict__.update(entries)
+    def __init__(self, **entries): self.__dict__.update(entries)
+    def copy(self): return Struct(**self.__dict__)
 
 import pickle, os
 class MultiKeyDict(dict):

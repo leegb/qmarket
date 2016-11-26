@@ -78,20 +78,23 @@ def calcStatsFromData(dataList, marketStr):
 def procRefreshWatchlist(sharedD, watchlistName, watchlist):
 
     def refreshMarketStats(marketStr):
-        marketTuple = parseToMarketTuple(marketStr)
+        market = parseToMarketStruct(marketStr)
 
-        appendMinuteData = marketTuple[0].appendMinuteData
+        appendMinuteData = market.exchange.appendMinuteData
         resampleMinuteData = False
 
-        hourly = ChartData(marketTuple + ('h',))
-        daily = ChartData(marketTuple + ('d',))
+        market.timeframe = 'h'
+        hourly = ChartData(market)
+        market.timeframe = 'd'
+        daily = ChartData(market)
 
         dataList = [hourly, daily]
         for data in dataList:
             data.downloadAndParse()
 
         if appendMinuteData or resampleMinuteData:
-            minuteData = ChartData(marketTuple + ('m',))
+            market.timeframe = 'm'
+            minuteData = ChartData(market)
             minuteData.downloadAndParse()
             for data in dataList:
                 data.appendMinuteData(minuteData)
@@ -388,9 +391,10 @@ class WatchlistWindow(QtGui.QMainWindow):
             stats = gCache.get(key).value
 
             # When we unpickle, the DataFrame is valid but ChartData is not so call the constructor.
-            marketTuple = parseToMarketTuple(marketStr)
+            market = parseToMarketStruct(marketStr)
             for i,data in enumerate(stats.dataList):
-                data.__init__(marketTuple + (SHOW_TIMEFRAMES[i],), existingDf=data)
+                market.timeframe = SHOW_TIMEFRAMES[i]
+                data.__init__(market, existingDf=data)
             self.results.append(stats)
 
         results = []
@@ -424,7 +428,7 @@ class WatchlistWindow(QtGui.QMainWindow):
         return self.sortedMarkets[row]
 
     def getChartsToShow(self):
-        return str(self.ui.showCharts.currentText()).split(',')
+        return [s.strip() for s in str(self.ui.showCharts.currentText()).split(',')]
 
     def listMouseMoveEvent(self, event):
         pos = event.pos()

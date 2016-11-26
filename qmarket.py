@@ -234,27 +234,27 @@ class PricesViewBox(pg.ViewBox):
         addSeperator()
 
         # Add interval submenu to context menu
-        intervalMenu = QtGui.QMenu('&Time Interval', self.menu)
+        timeframeMenu = QtGui.QMenu('&Timeframe', self.menu)
         # Create the interval options depending on what chart group we are looking at.
-        def onIntervalMenuShow():
-            intervalMenu.clear()
+        def onTimeframeMenuShow():
+            timeframeMenu.clear()
             data = self.cg.data
             if not data.count():
                 return
             intervals = data.exchange.intervals
             sortedBySeconds = sorted(intervals, key=lambda i: intervalSeconds(i))
             lastIntervalLetter = ''
-            for intervalKey in sortedBySeconds:
-                interval = intervalKey
+            for timeframe in sortedBySeconds:
+                interval = timeframe
                 if interval == '5m':
                     interval = '&5m'
                 elif interval[-1] != lastIntervalLetter:
                     lastIntervalLetter = interval[-1]
                     interval = interval[:-1] + '&' + lastIntervalLetter
-                addAction(interval, intervalMenu,
-                    lambda _, intervalKey=intervalKey: self.cg.changeTimeInterval(intervalKey))
-        intervalMenu.aboutToShow.connect(onIntervalMenuShow)
-        self.menu.insertMenu(insertBefore, intervalMenu)
+                addAction(interval, timeframeMenu,
+                    lambda _, timeframe=timeframe: self.cg.changeTimeInterval(timeframe))
+        timeframeMenu.aboutToShow.connect(onTimeframeMenuShow)
+        self.menu.insertMenu(insertBefore, timeframeMenu)
 
         # Add links submenu to context menu
         linksMenu = QtGui.QMenu('Links', self.menu)
@@ -276,7 +276,7 @@ class PricesViewBox(pg.ViewBox):
 
             resampleTable = {'4&h': ['m', 'h'], '1&w': ['d'], '1&d': ['h']}
             for toTime, fromTime in resampleTable.items():
-                if data.intervalKey[-1] in fromTime:
+                if data.timeframe[-1] in fromTime:
                     addAction(toTime, resampleMenu,
                         lambda _, toTime=toTime: self.cg.resampleData(toTime.replace('&', '')))
         resampleMenu.aboutToShow.connect(onResampleMenuShow)
@@ -451,50 +451,54 @@ class ChartGroup():
                     action.trigger()
                 break
 
-    def changeTimeInterval(self, intervalKey):
-        self.marketTuple = self.marketTuple[:2] + (intervalKey,)
+    def changeTimeInterval(self, timeframe):
+        self.market.timeframe = timeframe
         self.downloadNewData()
-    def resampleData(self, intervalKey):
-        data = self.data.resampleNew(intervalKey)
+    def resampleData(self, timeframe):
+        data = self.data.resampleNew(timeframe)
         self.assignData(data)
 
-    def changeMarket(self, marketTupleOrData):
-        if type(marketTupleOrData) == ChartData:
-            data = marketTupleOrData
-            self.marketTuple = data.marketTuple
+    def changeMarket(self, marketStructOrData):
+        if type(marketStructOrData) == ChartData:
+            data = marketStructOrData
+            self.market = data.market()
             self.assignData(data)
         else:
-            marketTuple = marketTupleOrData
-            if marketTuple and len(marketTuple) < 3:
-                defaultTimeframe = marketTuple[0].defaultTimeframe
+            market = marketStructOrData
+            if market and not market.timeframe:
+                defaultTimeframe = market.exchange.defaultTimeframe
                 # Default to timeframe that we are already showing.
                 for prevRow in range(self.coord[ROW]):
                     prevCg = self.window.charts.get((prevRow, self.coord[COL]))
-                    if prevCg.marketTuple:
-                        defaultTimeframe = prevCg.marketTuple[2]
+                    if prevCg.market:
+                        defaultTimeframe = prevCg.market.timeframe
                         break
-                marketTuple += (defaultTimeframe,)
-            self.marketTuple = marketTuple
+                market.timeframe = defaultTimeframe
+            self.market = market
             self.downloadNewData()
 
         self.window.onMarketsChanged(self)
 
-    def copyMarketToAdjacentChart(self, timeFrame='h'):
-        if not self.marketTuple:
+    def copyMarketToAdjacentChart(self, timeframe='h'):
+        if not self.market:
             return
         coord = (self.coord[0], self.coord[1] + 1)
-        if timeFrame:
-            self.window.setChartAt(self.marketTuple[:2] + (timeFrame,), coord)
+        if timeframe:
+            market = self.market.copy()
+            market.timeframe = timeframe
+            self.window.setChartAt(market, coord)
         else:
             self.window.setChartAt(self.data, coord) # Display data again without re-downloading
 
     def downloadNewData(self):
-        data = ChartData(self.marketTuple)# Blank data object
-        if self.marketTuple:# Check for empty chart
+        data = ChartData(self.market)# Blank data object
+        if self.market:# Check for empty chart
             data.downloadAndParse(getOrders=self.showOrderwall)
 
-            if data.exchange.appendMinuteData and data.intervalKey[1] in ['h', 'd']:
-                minuteDataToCopy = ChartData(self.marketTuple[:2] + ('m',))
+            if data.exchange.appendMinuteData and data.timeframe[1] in ['h', 'd']:
+                market = self.market.copy()
+                market.timeframe = 'm'
+                minuteDataToCopy = ChartData(market)
                 minuteDataToCopy.downloadAndParse()
                 data.appendMinuteData(minuteDataToCopy)
 
@@ -516,7 +520,7 @@ class ChartGroup():
 
     def openSearchMenu(self, exchange):
         def onChooseSearchResult(result):
-            self.changeMarket(parseToMarketTuple(result, exchange))
+            self.changeMarket(parseToMarketStruct(result, exchange))
             if exchange:
                 exchange.symbols[result] = None
                 exchange.saveSymbols()
@@ -740,7 +744,9 @@ class ChartGroup():
         data = self.data
         title = ''
         if data.count():
-            title = data.exchange.name + ': ' + data.symbolKey + ' ' + data.intervalKey
+            title = data.exchange.name + ': ' +\
+                (data.description + ' | ' if data.description else '') +\
+                data.symbolKey + ' ' + data.timeframe
 
         mainPlot = self.createPlot(PLOT_MAIN)
         mainPlot.setTitle(title)
@@ -957,8 +963,8 @@ if __name__ == '__main__':
     marketsToAdd = []
     sp_space = sys.argv[1:]
     for arg in sp_space:
-        marketTuple = parseToMarketTuple(arg)
-        marketsToAdd.append(marketTuple)
+        market = parseToMarketStruct(arg)
+        marketsToAdd.append(market)
     ChartWindow(marketsToAdd).show()
 
     show()

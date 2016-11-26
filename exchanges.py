@@ -70,7 +70,7 @@ class _1(Exchange):
 
     def dataUrls(self, data, getOrders):
         symbol=self.symbols[data.symbolKey]
-        return [{'url': 'https://s2.bitcoinwisdom.com/period?step=%i&sid=866d9ac4&symbol=%s' % (intervalSeconds(data.intervalKey), symbol)}] +\
+        return [{'url': 'https://s2.bitcoinwisdom.com/period?step=%i&sid=866d9ac4&symbol=%s' % (intervalSeconds(data.timeframe), symbol)}] +\
             ([{'url': 'https://s2.bitcoinwisdom.com/depth?symbol=%s&sid=866d9ac4' % symbol}] if getOrders else [])
 
     def parseData(self, data, responses):
@@ -112,7 +112,7 @@ class _2(Exchange):
     def dataUrls(self, data, getOrders):
         symbol=self.symbols[data.symbolKey]
         return [{'url': 'http://bitcoincharts.com/charts/chart.json?m=%s&r=%s&i=%s'
-        % (symbol, self.intervals[data.intervalKey][1], self.intervals[data.intervalKey][0])}]
+        % (symbol, self.intervals[data.timeframe][1], self.intervals[data.timeframe][0])}]
 
     def parseData(self, data, responses):
         response = responses[0]
@@ -168,8 +168,8 @@ class _3(Exchange):
     def dataUrls(self, data, getOrders):
         symbol = (lambda sp: sp[1] + '_' + sp[0])(data.symbolKey.split('/'))
         return [{'url': 'https://poloniex.com/public?command=returnChartData&currencyPair=' + symbol +\
-        '&start=' + str(timestamp(now() - dt.timedelta(days=self.intervals[data.intervalKey]))) + '&end=9999999999&' +\
-        'period=%i' % intervalSeconds(data.intervalKey)
+        '&start=' + str(timestamp(now() - dt.timedelta(days=self.intervals[data.timeframe]))) + '&end=9999999999&' +\
+        'period=%i' % intervalSeconds(data.timeframe)
         }] +\
         ([{'url': 'https://poloniex.com/public?command=returnOrderBook&currencyPair=%s&depth=1000'
         % (symbol)}] if getOrders else [])
@@ -257,8 +257,8 @@ class _6(ExchangeWithSearch):
         # Url used by Yahoo's website charts.
         return [{'url': 'https://finance-yql.media.yahoo.com/v7/finance/chart/' + data.symbolKey + \
         '?period2=' + str(timestamp(now())) + \
-        '&period1=' + str(timestamp(now() - dt.timedelta(days=self.intervals[data.intervalKey]))) + \
-        '&interval=' + data.intervalKey.upper() + ('k' if data.intervalKey == '1w' else '') + \
+        '&period1=' + str(timestamp(now() - dt.timedelta(days=self.intervals[data.timeframe]))) + \
+        '&interval=' + data.timeframe.upper() + ('k' if data.timeframe == '1w' else '') + \
         '&indicators=quote&includeTimestamps=true&includePrePost=true&events=div|split|earn&corsDomain=finance.yahoo.com'}]
 
     def parseData(self, data, responses):
@@ -333,13 +333,13 @@ class _7(ExchangeWithSearch):
         # Url used by Google's flash charts.
         return [{'url': 'https://www.google.co.uk/finance/getprices?q=' + data.symbolKey.split(':')[1] + \
         '&x=' + data.symbolKey.split(':')[0] + \
-        '&i=' + str(intervalSeconds(data.intervalKey)) + \
-        '&p=' + self.intervals[data.intervalKey] + '&f=d,c,v,o,h,l&df=cpct&auto=1' + \
+        '&i=' + str(intervalSeconds(data.timeframe)) + \
+        '&p=' + self.intervals[data.timeframe] + '&f=d,c,v,o,h,l&df=cpct&auto=1' + \
         '&ts=' + str(timestamp(now()))}]
 
     def parseData(self, data, responses):
         lines = responses[0].splitlines()[7:]
-        seconds = intervalSeconds(data.intervalKey)
+        seconds = intervalSeconds(data.timeframe)
 
         tohlcv = []
         for line in lines:
@@ -401,8 +401,8 @@ class _8(ExchangeWithSearch):
 
     def dataUrls(self, data, getOrders):
         return [
-            {'url': 'https://api.ig.com/chart/snapshot/' + data.symbolKey + '/' + self.intervals[data.intervalKey][0] +\
-            '/batch/start/' + (now() - dt.timedelta(days=self.intervals[data.intervalKey][1])).strftime(IGINDEX_DATETIME_FORMAT) +\
+            {'url': 'https://api.ig.com/chart/snapshot/' + data.symbolKey + '/' + self.intervals[data.timeframe][0] +\
+            '/batch/start/' + (now() - dt.timedelta(days=self.intervals[data.timeframe][1])).strftime(IGINDEX_DATETIME_FORMAT) +\
             '/0/end/' + now().strftime(IGINDEX_DATETIME_FORMAT) + '/999' +\
             '?format=json&siteId=igi&locale=en_GB',
             'headers': ig.getHeaders()}

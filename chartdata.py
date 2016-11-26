@@ -33,10 +33,12 @@ TA_LIST = dict(
 def floatToIndex(floatIdx):
     return int(round(floatIdx))
 
-def parseToMarketTuple(string, exchangeAlreadyKnown=None):
-
+def parseToMarketStruct(string, exchangeAlreadyKnown=None):
     # Cut off any preceeding description, eg: Advanced Micro Devices, Inc. | NASDAQ:AMD
-    string = string.split('|')[-1]
+    sp = [s.strip() for s in string.split('|')]
+
+    description = sp[0] if len(sp) > 1 else ''
+    string = sp[-1]
 
     sp = [s.strip() for s in string.split('/')]
     if exchangeAlreadyKnown:
@@ -50,16 +52,19 @@ def parseToMarketTuple(string, exchangeAlreadyKnown=None):
     # In case of incomplete symbol name
     symbolKey = exchange.findSymbol(symbolKey)
 
-    # Cut off the description again, because it might be in the exchange's symbol list too.
+    # Cut off the description again, as findSymbol() may have added it back.
     symbolKey = (symbolKey.split('|')[-1]).strip()
 
-    return (exchange, symbolKey)
+    return Struct(exchange=exchange,
+                  symbolKey=symbolKey,
+                  description=description,
+                  timeframe='')
 
 class ChartData(pd.DataFrame):
     # Static because this is set a few levels above where downloadAndParse is called.
     cacheSeconds = 0
 
-    def __init__(self, marketTuple, existingDf=None):
+    def __init__(self, market, existingDf=None):
         if existingDf is not None:
             if existingDf is not self:# Watchlist calls __init__ explicitly to fix the subclass.
                 super(ChartData, self).__init__(existingDf)
@@ -70,26 +75,24 @@ class ChartData(pd.DataFrame):
         self.isOHLC = False
         self.hasVolume = False
 
-        if not marketTuple:
+        if not market:
             return
-        assert(len(marketTuple) == 3)
-        self.marketTuple = marketTuple
-        self.exchange, self.symbolKey, self.intervalKey = marketTuple
+        self.__dict__.update(market.__dict__)
 
         if existingDf is not None and self.count():
             self.onDataChange()# We already have a filled ChartData object
             #return # Dont override the interval key - WHY?
 
-        if len(self.intervalKey) == 1:
+        if len(self.timeframe) == 1:
             # marketTuple can skip multiple on interval, eg 'h'
             lowest = sys.maxint
-            for intervalKey in self.exchange.intervals:
-                if intervalKey[-1] != self.intervalKey:
+            for timeframe in self.exchange.intervals:
+                if timeframe[-1] != self.timeframe:
                     continue
-                multiple = int(intervalKey[:-1])
+                multiple = int(timeframe[:-1])
                 lowest = min(lowest, multiple)
             if lowest != sys.maxint:
-                self.intervalKey = str(lowest) + self.intervalKey
+                self.timeframe = str(lowest) + self.timeframe
 
     def npZeros(self, cols=1):
         return np.zeros((self.count(), cols))
@@ -113,26 +116,32 @@ class ChartData(pd.DataFrame):
 
         self.onDataChange()
 
-    def resampleNew(self, interval):# 'D' / 'H'
+    def market(self):
+        return Struct(exchange=self.exchange,
+                      symbolKey=self.symbolKey,
+                      description=self.description,
+                      timeframe=self.timeframe)
+    def resampleNew(self, timeframe):# 'D' / 'H'
         # Convert the integer timestamps in the index to a DatetimeIndex
         # This interprets the integers as seconds since the Epoch.
         self.index = pd.to_datetime(self.times, unit='s')
 
         ohlc_dict = dict(times='first', open='first', high='max', low='min', close='last', volume='sum')
-        df = self.resample(interval.upper(), how=ohlc_dict, closed='right', label='right')
+        df = self.resample(timeframe.upper(), how=ohlc_dict, closed='right', label='right')
         df = df[~df.times.isnull()]# Remove rows with NANs
 
-        #df = ChartData(self.marketTuple[:2] + (interval,), df)
         df.__class__ = ChartData # Saves a data copy.
-        df.__init__(self.marketTuple[:2] + (interval,), df)
+        market = self.market()
+        market.timeframe = timeframe
+        df.__init__(market, df)
         return df
 
     def appendMinuteData(self, minuteDataToCopy):
         dtCompare = {'d': lambda t: t.date(),
-                     'h': lambda t: (t.date(), t.hour)}[self.intervalKey[1]]
+                     'h': lambda t: (t.date(), t.hour)}[self.timeframe[1]]
 
         dtNow = now()
-        #resampled = self.resampleNew(self.intervalKey[1].upper())#FIXME
+        #resampled = self.resampleNew(self.timeframe[1].upper())#FIXME
         ohlcv = minuteDataToCopy.calcOHLCForPeriod(dtNow, dtCompare)
         if ohlcv[LOW] == sys.float_info.max:
             return
@@ -462,7 +471,7 @@ class ChartData(pd.DataFrame):
         return wrapList(ret)
 
     def chartCacheKey(self, responseIdx=0):
-        return ['charts', self.exchange.name, self.symbolKey, self.intervalKey, str(responseIdx)]
+        return ['charts', self.exchange.name, self.symbolKey, self.timeframe, str(responseIdx)]
 
     def downloadAndParse(self, getOrders=False):
         responses = []
