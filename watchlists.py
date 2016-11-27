@@ -138,6 +138,7 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         'volume',
     ]
     multiColumns = [
+        'adx',
         'stepsSinceSqueeze',
         'upTrend',
         #'squeezeDuration',
@@ -152,7 +153,8 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         return len(self.window.sortedMarkets) + 1
 
     def columnCount(self, parent):
-        return len(self.columns) + NUM_STATS_TIMEFRAMES*len(self.multiColumns)
+        columns, multiColumns = self.window.activeColumns()
+        return len(columns) + NUM_STATS_TIMEFRAMES*len(multiColumns)
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
@@ -161,14 +163,15 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         sortedMarkets = self.window.sortedMarkets
         row, col = index.row(), index.column()
 
-        singleColumns = len(self.columns)
-        if col < singleColumns:
+        columns, multiColumns = self.window.activeColumns()
+
+        if col < len(columns):
             colName = self.columns[col]
             subCol = 0
         else:
-            col -= singleColumns
+            col -= len(columns)
             col, subCol = col/NUM_STATS_TIMEFRAMES, col%NUM_STATS_TIMEFRAMES
-            colName = self.multiColumns[col]
+            colName = multiColumns[col]
 
         if row == 0:
             stats = None
@@ -189,7 +192,7 @@ class WatchlistModel(QtCore.QAbstractTableModel):
                 elif colName == 'upTrend':
                     ret = ['SHORT', 'LONG'][stats.upTrend[subCol]]
                 else:
-                    ret = getattr(stats, self.multiColumns[col], '')[subCol]
+                    ret = getattr(stats, multiColumns[col], '')[subCol]
                     if type(ret) != str:
                         ret = '{0:.2f}'.format(ret)
             if role == Qt.ForegroundRole:
@@ -218,6 +221,12 @@ class WatchlistWindow(QtGui.QMainWindow):
         self.ui = watchlist_ui.Ui_WatchlistWindow()
         self.ui.setupUi(self)
 
+        for c, col in enumerate(WatchlistModel.columns + WatchlistModel.multiColumns):
+            checkbox = QtGui.QCheckBox(col)
+            checkbox.clicked.connect(self.onSelectColumns)
+            self.ui.showColumns.layout().addWidget(checkbox)
+            setattr(self.ui, col + '_checkbox', checkbox)# for guiSave()
+
         self.sortedMarkets = []
 
         self.selectedMarket = None
@@ -228,8 +237,6 @@ class WatchlistWindow(QtGui.QMainWindow):
             Stretch)
         self.ui.tableView.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.
             ResizeToContents)# Override the Stretch just for the marketStr column
-        for col in range(len(self.model.multiColumns)):
-            self.ui.tableView.setSpan(0, len(self.model.columns) + col*NUM_STATS_TIMEFRAMES, 1, NUM_STATS_TIMEFRAMES)
 
         selectionModel = self.ui.tableView.selectionModel()
         selectionModel.selectionChanged.connect(self.listSelectionChanged)
@@ -259,6 +266,27 @@ class WatchlistWindow(QtGui.QMainWindow):
 
         self.procRefresh = None
         self.ui.watchlistName.currentIndexChanged.connect(self.onWatchlistSelected)
+
+        self.onSelectColumns()
+
+    def activeColumns(self):
+        columns, multiColumns = [], []
+        for checkbox in self.ui.showColumns.children()[1:]:
+            if not checkbox.isChecked():
+                continue
+            text = str(checkbox.text())
+            if text in WatchlistModel.columns:
+                columns.append(text)
+            elif text in WatchlistModel.multiColumns:
+                multiColumns.append(text)
+        return columns, multiColumns
+
+    def onSelectColumns(self):
+        columns, multiColumns = self.activeColumns()
+        for col in range(len(multiColumns)):
+            self.ui.tableView.setSpan(0, len(columns) + col*NUM_STATS_TIMEFRAMES, 1, NUM_STATS_TIMEFRAMES)
+        # All information previously retrieved is invalid, including rowCount() and data()
+        self.model.modelReset.emit()
 
     def loadWatchlists(self):
 
@@ -337,20 +365,6 @@ class WatchlistWindow(QtGui.QMainWindow):
         comboBBFuncs = 'functions' in method
         dailyVolume = 'volume' in method
 
-        allFuncs = {
-            'abs': abs,
-            '-abs': lambda a: -abs(a),
-            '+': lambda a: a,
-            '-': lambda a: -a,
-            '0': lambda a: 0.,
-            '*': lambda a,b: a*b,
-            '/': lambda a,b: saveDiv(a, b),
-            '1': lambda a,b: a,
-        }
-        bbCombos = [self.ui.bbDaily, self.ui.bbHourly]
-        bbFuncs = [allFuncs[str(combo.currentText())] for combo in bbCombos]
-        adxFuncs = [allFuncs[str(combo.currentText())] for combo in [self.ui.adxDaily]]
-
         def calcSortKey(stats):
             ret = -1. # Filter it out
             if dailyVolume:
@@ -367,14 +381,6 @@ class WatchlistWindow(QtGui.QMainWindow):
                 ret = sum([1000000 - stats.stepsSinceSqueeze[i] + stats.squeezeDuration[i]/1000000.0 for i in range(len(stats.stepsSinceSqueeze))])
             elif squeezeDuration:
                 ret = stats.squeezeDuration
-            elif comboBBFuncs:
-                ret = 0.
-                for i in range(len(bbFuncs)):
-                    x = stats.bbOver[i]
-                    ret += bbFuncs[i](x)
-                for i in range(len(adxFuncs)):
-                    x = stats.adx[i]
-                    ret += adxFuncs[i](x)
             else:
                 ret = stats.marketStr
 
@@ -414,9 +420,6 @@ class WatchlistWindow(QtGui.QMainWindow):
         newLen = self.model.rowCount(None)
         self.model.beginInsertRows(QtCore.QModelIndex(), oldLen, newLen-1)
         self.model.endInsertRows()
-
-        # Do this if we have to reset the whole table
-        #self.model.modelReset.emit()#all information previously retrieved is invalid, including rowCount() and data()
 
         self.ui.statusbar.clearMessage()
         self.ui.statusbar.showMessage('Refreshed %i/%i' % (sharedD['idx'], len(self.watchlist)))

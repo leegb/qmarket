@@ -131,26 +131,28 @@ gSettings = QtCore.QSettings('MyCompany', 'qmarket')
 
 def guiSave(ui, settings):
     for name, obj in inspect.getmembers(ui):
-        if isinstance(obj, QtGui.QComboBox):
+        if not name:
             name = obj.objectName()
+
+        if isinstance(obj, QtGui.QComboBox):
             text = str(obj.currentText())
             settings.setValue(name, text)
 
         if isinstance(obj, QtGui.QLineEdit):
-            name = obj.objectName()
             value = obj.text()
             settings.setValue(name, value)
 
         if isinstance(obj, QtGui.QCheckBox):
-            name = obj.objectName()
             state = obj.isChecked()
             settings.setValue(name, state)
 
 def guiRestore(ui, settings):
     for name, obj in inspect.getmembers(ui):
+        if not name:
+            name = obj.objectName()
+
         if isinstance(obj, QtGui.QComboBox):
             index  = obj.currentIndex()
-            name   = obj.objectName()
 
             value = settings.value(name).toString()
             if value == '':
@@ -166,12 +168,10 @@ def guiRestore(ui, settings):
                 obj.setCurrentIndex(index)
 
         if isinstance(obj, QtGui.QLineEdit):
-            name = obj.objectName()
             value = settings.value(name).toString()
             obj.setText(value)
 
         if isinstance(obj, QtGui.QCheckBox):
-            name = obj.objectName()
             value = settings.value(name)
             if value != None:
                 obj.setChecked(value.toBool())

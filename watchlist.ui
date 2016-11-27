@@ -14,238 +14,142 @@
    <string>Watchlist</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QWidget" name="widget" native="true">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
+   <layout class="QGridLayout" name="gridLayout_4">
+    <item row="0" column="0">
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
       </property>
-      <layout class="QGridLayout" name="gridLayout">
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_4">
-         <property name="text">
-          <string>Watchlist</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="4">
-        <widget class="QComboBox" name="bbHourly">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>abs</string>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>List</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_2">
+        <item row="0" column="0">
+         <widget class="QWidget" name="widget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-abs</string>
+          <layout class="QGridLayout" name="gridLayout">
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Sort By</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>Show Charts</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2" colspan="3">
+            <widget class="QComboBox" name="watchlistName"/>
+           </item>
+           <item row="3" column="2" colspan="3">
+            <widget class="QComboBox" name="bbOverFilter">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <item>
+              <property name="text">
+               <string>No sorting</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>24h Volume</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Steps since squeeze</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Last squeeze duration</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Filter BB with longer MA</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>BB functions</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QComboBox" name="showCharts"/>
+           </item>
+           <item row="2" column="3">
+            <widget class="QCheckBox" name="pauseRefresh">
+             <property name="text">
+              <string>Pause Refresh</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Watchlist</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QTableView" name="tableView">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::SingleSelection</enum>
           </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>+</string>
+          <property name="selectionBehavior">
+           <enum>QAbstractItemView::SelectRows</enum>
           </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-</string>
+          <attribute name="horizontalHeaderVisible">
+           <bool>false</bool>
+          </attribute>
+          <attribute name="verticalHeaderVisible">
+           <bool>false</bool>
+          </attribute>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>Options</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="showColumns">
+          <property name="title">
+           <string>Show Columns</string>
           </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0</string>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
-         </item>
-        </widget>
-       </item>
-       <item row="1" column="2" colspan="3">
-        <widget class="QComboBox" name="watchlistName"/>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="label_5">
-         <property name="text">
-          <string>Sort By</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="label_3">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>BB Daily</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="3">
-        <widget class="QLabel" name="label_2">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>BB Hourly</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="2">
-        <widget class="QComboBox" name="adxDaily">
-         <item>
-          <property name="text">
-           <string>+</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>ADX Daily</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="2" colspan="3">
-        <widget class="QComboBox" name="bbOverFilter">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>No sorting</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>24h Volume</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Steps since squeeze</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Last squeeze duration</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Filter BB with longer MA</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>BB functions</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="4" column="2">
-        <widget class="QComboBox" name="bbDaily">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>abs</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-abs</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>+</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label_6">
-         <property name="text">
-          <string>Show Charts</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QCheckBox" name="pauseRefresh">
-         <property name="text">
-          <string>Pause Refresh</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QComboBox" name="showCharts"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTableView" name="tableView">
-      <property name="selectionMode">
-       <enum>QAbstractItemView::SingleSelection</enum>
-      </property>
-      <property name="selectionBehavior">
-       <enum>QAbstractItemView::SelectRows</enum>
-      </property>
-      <attribute name="horizontalHeaderVisible">
-       <bool>false</bool>
-      </attribute>
-      <attribute name="verticalHeaderVisible">
-       <bool>false</bool>
-      </attribute>
+          <layout class="QFormLayout" name="formLayout_2"/>
+         </widget>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>
