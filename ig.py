@@ -138,11 +138,11 @@ IG_INDEX_MAP = {
 }
 
 def setWatchlist(name, watchlist):
-    assert(all([type(s) == str for s in watchlist]))
+    watchlist = [str(s) for s in watchlist]
     gCache.set(watchlists.cacheKey(name), watchlist)
     print 'Watchlist: %s, #symbols: %i' % (name, len(watchlist))
 
-def importIGIndexCSVWatchlist(igIndexCSV):
+def importIGIndexCSVWatchlist(filename):
     reutersToGoogle = {
         #'AX': 'ASX',
         #'VI': 'VIE',
@@ -156,7 +156,8 @@ def importIGIndexCSVWatchlist(igIndexCSV):
     allWatchlists = {w: [] for w in set(IG_INDEX_MAP.values())}
 
     import pandas as pd
-    df = pd.read_csv(igIndexCSV, header=1)
+    #df = pd.read_csv(filename, header=1)
+    df = pd.read_excel(filename, header=1)
     for i, row in df.iterrows():
         if i < 2: continue
 
@@ -172,9 +173,8 @@ def importIGIndexCSVWatchlist(igIndexCSV):
         if market == None:
             continue
 
-        marketStr = market + ':' + symbol + '/Google'
-        description = row['Description'] + ',' + row['Country']
-        print marketStr + ' -> ' + description
+        marketStr = row['Description'] + '|' + market + ':' + symbol + '/Google'
+        print marketStr
         watchlist = allWatchlists[IG_INDEX_MAP[market]]
         watchlist.append(marketStr)
 
