@@ -10,8 +10,8 @@ from chartdata import *
 import watchlist_ui # pyuic4 watchlist.ui > watchlist_ui.py
 
 CACHE_SECONDS = 60 * 60 # Re-download if longer than this
-SHOW_TIMEFRAMES = ['1w', '1d', '4h', 'h']
-NUM_STATS_TIMEFRAMES = 3
+ALL_TIMEFRAMES = ['1w', '1d', '4h', 'h']
+NUM_TIMEFRAME_COLS = 3
 
 WATCHLIST_SCREENER = 'Screener'
 
@@ -42,7 +42,7 @@ def getScreenerWatchlist():
     return watchlist
 
 def calcStatsFromData(dataList, marketStr):
-    data = dataList[SHOW_TIMEFRAMES.index('1d')]
+    data = dataList[ALL_TIMEFRAMES.index('1d')]
     stats = Struct(exchange=data.exchange.name,
                    marketStr=marketStr,
                    symbolKey=data.symbolKey,
@@ -150,11 +150,28 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         self.window = window
 
     def rowCount(self, parent):
-        return len(self.window.sortedMarkets) + 1
+        return len(self.window.sortedMarkets)
 
     def columnCount(self, parent):
         columns, multiColumns = self.window.activeColumns()
-        return len(columns) + NUM_STATS_TIMEFRAMES*len(multiColumns)
+        return len(columns) + NUM_TIMEFRAME_COLS*len(multiColumns)
+
+    def headerData(self, section, orientation, role):
+        if role != Qt.DisplayRole or orientation != Qt.Horizontal:
+            return
+
+        columns, multiColumns = self.window.activeColumns()
+        col = section
+        if col < len(columns):
+            colName = columns[col]
+        else:
+            col -= len(columns)
+            col, subCol = col/NUM_TIMEFRAME_COLS, col%NUM_TIMEFRAME_COLS
+            colName = '\n' + ALL_TIMEFRAMES[subCol]
+            if not subCol:
+                colName = multiColumns[col] + colName
+
+        return colName
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
@@ -164,22 +181,17 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         row, col = index.row(), index.column()
 
         columns, multiColumns = self.window.activeColumns()
-
         if col < len(columns):
-            colName = self.columns[col]
+            colName = columns[col]
             subCol = 0
         else:
             col -= len(columns)
-            col, subCol = col/NUM_STATS_TIMEFRAMES, col%NUM_STATS_TIMEFRAMES
+            col, subCol = col/NUM_TIMEFRAME_COLS, col%NUM_TIMEFRAME_COLS
             colName = multiColumns[col]
 
-        if row == 0:
-            stats = None
-        else:
-            row -= 1
-            if row >= len(sortedMarkets):
-                return
-            stats = sortedMarkets[row]
+        if row >= len(sortedMarkets):
+            return
+        stats = sortedMarkets[row]
 
         ret = None
         if stats:
@@ -202,10 +214,6 @@ class WatchlistModel(QtCore.QAbstractTableModel):
             if role == Qt.BackgroundRole:
                 if colName == 'upTrend':
                     ret = QtGui.QColor([QtCore.Qt.red, QtCore.Qt.cyan][stats.upTrend[subCol]])
-        else:
-            if role == Qt.DisplayRole:
-                if subCol: return
-                ret = colName
 
         return QtCore.QVariant(ret)
 
@@ -233,21 +241,17 @@ class WatchlistWindow(QtGui.QMainWindow):
         self.model = WatchlistModel(self)
         self.ui.tableView.setModel(self.model)
         self.ui.tableView.setAlternatingRowColors(True)
-        self.ui.tableView.horizontalHeader().setResizeMode(QtGui.QHeaderView.
-            Stretch)
-        self.ui.tableView.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.
-            ResizeToContents)# Override the Stretch just for the marketStr column
+        self.ui.tableView.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        self.ui.tableView.mouseMoveEvent = self.listMouseMoveEvent
+        self.ui.tableView.setMouseTracking(True)
 
         selectionModel = self.ui.tableView.selectionModel()
         selectionModel.selectionChanged.connect(self.listSelectionChanged)
 
-        self.ui.tableView.mouseMoveEvent = self.listMouseMoveEvent
-        self.ui.tableView.setMouseTracking(True)
-
-        for i in range(len(SHOW_TIMEFRAMES)):
-            self.ui.showCharts.addItem(', '.join(SHOW_TIMEFRAMES[:i+1]))
-        for i in range(-len(SHOW_TIMEFRAMES)+1, 0):
-            self.ui.showCharts.addItem(', '.join(SHOW_TIMEFRAMES[i:]))
+        for i in range(len(ALL_TIMEFRAMES)):
+            self.ui.showCharts.addItem(', '.join(ALL_TIMEFRAMES[:i+1]))
+        for i in range(-len(ALL_TIMEFRAMES)+1, 0):
+            self.ui.showCharts.addItem(', '.join(ALL_TIMEFRAMES[i:]))
 
         self.loadWatchlists()
 
@@ -282,14 +286,15 @@ class WatchlistWindow(QtGui.QMainWindow):
         return columns, multiColumns
 
     def onSelectColumns(self):
-        columns, multiColumns = self.activeColumns()
-        for col in range(len(multiColumns)):
-            self.ui.tableView.setSpan(0, len(columns) + col*NUM_STATS_TIMEFRAMES, 1, NUM_STATS_TIMEFRAMES)
         # All information previously retrieved is invalid, including rowCount() and data()
         self.model.modelReset.emit()
 
-    def loadWatchlists(self):
+        # Override the Stretch just for the marketStr column
+        columns, multiColumns = self.activeColumns()
+        mode = QtGui.QHeaderView.ResizeToContents if len(columns) and columns[0] == 'marketStr' else QtGui.QHeaderView.Stretch
+        self.ui.tableView.horizontalHeader().setResizeMode(0, mode)
 
+    def loadWatchlists(self):
         o = Struct(watchlists={})
         def addWatchlist(fromExchanges, name=None):
             fromExchanges = [exchanges.findExchange(e) for e in wrapList(fromExchanges)]
@@ -399,7 +404,7 @@ class WatchlistWindow(QtGui.QMainWindow):
             # When we unpickle, the DataFrame is valid but ChartData is not so call the constructor.
             market = parseToMarketStruct(marketStr)
             for i,data in enumerate(stats.dataList):
-                market.timeframe = SHOW_TIMEFRAMES[i]
+                market.timeframe = ALL_TIMEFRAMES[i]
                 data.__init__(market, existingDf=data)
             self.results.append(stats)
 
@@ -425,7 +430,6 @@ class WatchlistWindow(QtGui.QMainWindow):
         self.ui.statusbar.showMessage('Refreshed %i/%i' % (sharedD['idx'], len(self.watchlist)))
 
     def getStatsByRow(self, row):
-        row = row - 1
         if row < 0 or row >= len(self.sortedMarkets):
             return
         return self.sortedMarkets[row]
@@ -442,7 +446,7 @@ class WatchlistWindow(QtGui.QMainWindow):
 
         # Create candlestick pictures on list mouseover to speed up selection.
         for text in self.getChartsToShow():
-            data = stats.dataList[SHOW_TIMEFRAMES.index(text)]
+            data = stats.dataList[ALL_TIMEFRAMES.index(text)]
             for isVolume in range(2):
                 data.createCandlestick(isVolume, self.cg.showTrendBars)
 
@@ -457,11 +461,11 @@ class WatchlistWindow(QtGui.QMainWindow):
 
         cg = self.cg
         chartsToShow = self.getChartsToShow()
-        for i in range(len(SHOW_TIMEFRAMES)):
+        for i in range(len(ALL_TIMEFRAMES)):
             coord = (cg.coord[0], cg.coord[1] + i)
             if i < len(chartsToShow):
                 text = chartsToShow[i]
-                data = stats.dataList[SHOW_TIMEFRAMES.index(text)]
+                data = stats.dataList[ALL_TIMEFRAMES.index(text)]
                 cg.window.setChartAt(data, coord)
             else:
                 chart = cg.window.charts.get(coord)
