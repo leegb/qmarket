@@ -34,13 +34,6 @@
            </sizepolicy>
           </property>
           <layout class="QGridLayout" name="gridLayout">
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_5">
-             <property name="text">
-              <string>Sort By</string>
-             </property>
-            </widget>
-           </item>
            <item row="2" column="0">
             <widget class="QLabel" name="label_6">
              <property name="text">
@@ -50,49 +43,6 @@
            </item>
            <item row="1" column="2" colspan="3">
             <widget class="QComboBox" name="watchlistName"/>
-           </item>
-           <item row="3" column="2" colspan="3">
-            <widget class="QComboBox" name="bbOverFilter">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="currentIndex">
-              <number>0</number>
-             </property>
-             <item>
-              <property name="text">
-               <string>No sorting</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>24h Volume</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Steps since squeeze</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Last squeeze duration</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Filter BB with longer MA</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>BB functions</string>
-              </property>
-             </item>
-            </widget>
            </item>
            <item row="2" column="2">
             <widget class="QComboBox" name="showCharts"/>

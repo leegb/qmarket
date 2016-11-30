@@ -132,6 +132,33 @@ def procRefreshWatchlist(sharedD, watchlistName, watchlist):
 
         sharedD['idx'] += 1
 
+# Return: float, string
+def getStatsValue(stats, colName, subCol):
+    if colName == 'marketStr':
+        ret = stats.marketStr
+        ret = None, ret[:ret.rfind('/')]# Cut off the exchange name
+    elif colName == 'volume':
+        ret = stats.volume, strVolume(stats.volume)
+    elif colName == 'upTrend':
+        ret = None, ['SHORT', 'LONG'][stats.upTrend[subCol]]
+    else:
+        ret = getattr(stats, colName, '')[subCol]
+        if type(ret) == str:
+            ret = None, str
+        else:
+            ret = ret, '{0:.2f}'.format(ret)
+    return ret
+
+def getColumnNameAndSub(columns, multiColumns, colIndex):
+    if colIndex < len(columns):
+        subCol = None
+        colName = columns[colIndex]
+    else:
+        colIndex -= len(columns)
+        colIndex, subCol = colIndex/NUM_TIMEFRAME_COLS, colIndex%NUM_TIMEFRAME_COLS
+        colName = multiColumns[colIndex]
+    return colName, subCol
+
 class WatchlistModel(QtCore.QAbstractTableModel):
     columns = [
         'marketStr',
@@ -159,61 +186,32 @@ class WatchlistModel(QtCore.QAbstractTableModel):
     def headerData(self, section, orientation, role):
         if role != Qt.DisplayRole or orientation != Qt.Horizontal:
             return
-
         columns, multiColumns = self.window.activeColumns()
-        col = section
-        if col < len(columns):
-            colName = columns[col]
-        else:
-            col -= len(columns)
-            col, subCol = col/NUM_TIMEFRAME_COLS, col%NUM_TIMEFRAME_COLS
-            colName = '\n' + ALL_TIMEFRAMES[subCol]
-            if not subCol:
-                colName = multiColumns[col] + colName
-
+        colName, subCol = getColumnNameAndSub(columns, multiColumns, section)
+        if subCol != None:
+            colName = (colName if subCol == 0 else '') + '\n' + ALL_TIMEFRAMES[subCol]
         return colName
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return
-
-        sortedMarkets = self.window.sortedMarkets
         row, col = index.row(), index.column()
 
         columns, multiColumns = self.window.activeColumns()
-        if col < len(columns):
-            colName = columns[col]
-            subCol = 0
-        else:
-            col -= len(columns)
-            col, subCol = col/NUM_TIMEFRAME_COLS, col%NUM_TIMEFRAME_COLS
-            colName = multiColumns[col]
-
-        if row >= len(sortedMarkets):
-            return
-        stats = sortedMarkets[row]
+        colName, subCol = getColumnNameAndSub(columns, multiColumns, col)
 
         ret = None
-        if stats:
-            if role == Qt.DisplayRole:
-                if colName == 'marketStr':
-                    ret = stats.marketStr
-                    ret = ret[:ret.rfind('/')]# Cut off the exchange name
-                elif colName == 'volume':
-                    ret = strVolume(stats.volume)
-                elif colName == 'upTrend':
-                    ret = ['SHORT', 'LONG'][stats.upTrend[subCol]]
-                else:
-                    ret = getattr(stats, multiColumns[col], '')[subCol]
-                    if type(ret) != str:
-                        ret = '{0:.2f}'.format(ret)
-            if role == Qt.ForegroundRole:
-                if colName == 'stepsSinceSqueeze':
-                    if not stats.stepsSinceSqueeze[subCol]:
-                        ret = QtGui.QColor(QtCore.Qt.red)
-            if role == Qt.BackgroundRole:
-                if colName == 'upTrend':
-                    ret = QtGui.QColor([QtCore.Qt.red, QtCore.Qt.cyan][stats.upTrend[subCol]])
+        stats = self.window.sortedMarkets[row]
+        if role == Qt.DisplayRole:
+            floatVal, strVal = getStatsValue(stats, colName, subCol)
+            ret = strVal
+        elif role == Qt.ForegroundRole:
+            if colName == 'stepsSinceSqueeze':
+                if not stats.stepsSinceSqueeze[subCol]:
+                    ret = QtGui.QColor(QtCore.Qt.red)
+        elif role == Qt.BackgroundRole:
+            if colName == 'upTrend':
+                ret = QtGui.QColor([QtCore.Qt.red, QtCore.Qt.cyan][stats.upTrend[subCol]])
 
         return QtCore.QVariant(ret)
 
@@ -236,17 +234,16 @@ class WatchlistWindow(QtGui.QMainWindow):
             setattr(self.ui, col + '_checkbox', checkbox)# for guiSave()
 
         self.sortedMarkets = []
-
+        self.sortColumns = []
+        self.recalcSortKeys = False
         self.selectedMarket = None
-        self.model = WatchlistModel(self)
-        self.ui.tableView.setModel(self.model)
         self.ui.tableView.setAlternatingRowColors(True)
-        self.ui.tableView.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        header = self.ui.tableView.horizontalHeader()
+        header.sectionClicked.connect(self.onHeaderSectionClicked)
+        header.setResizeMode(QtGui.QHeaderView.Stretch)
+
         self.ui.tableView.mouseMoveEvent = self.listMouseMoveEvent
         self.ui.tableView.setMouseTracking(True)
-
-        selectionModel = self.ui.tableView.selectionModel()
-        selectionModel.selectionChanged.connect(self.listSelectionChanged)
 
         for i in range(len(ALL_TIMEFRAMES)):
             self.ui.showCharts.addItem(', '.join(ALL_TIMEFRAMES[:i+1]))
@@ -271,7 +268,10 @@ class WatchlistWindow(QtGui.QMainWindow):
         self.procRefresh = None
         self.ui.watchlistName.currentIndexChanged.connect(self.onWatchlistSelected)
 
-        self.onSelectColumns()
+        self.model = WatchlistModel(self)
+        self.ui.tableView.setModel(self.model)
+        selectionModel = self.ui.tableView.selectionModel()
+        selectionModel.selectionChanged.connect(self.listSelectionChanged)
 
     def activeColumns(self):
         columns, multiColumns = [], []
@@ -288,11 +288,11 @@ class WatchlistWindow(QtGui.QMainWindow):
     def onSelectColumns(self):
         # All information previously retrieved is invalid, including rowCount() and data()
         self.model.modelReset.emit()
-
-        # Override the Stretch just for the marketStr column
-        columns, multiColumns = self.activeColumns()
-        mode = QtGui.QHeaderView.ResizeToContents if len(columns) and columns[0] == 'marketStr' else QtGui.QHeaderView.Stretch
-        self.ui.tableView.horizontalHeader().setResizeMode(0, mode)
+        self.sortColumns = []
+        self.recalcSortKeys = True
+    def onHeaderSectionClicked(self, logicalIndex):
+        self.sortColumns = [logicalIndex]
+        self.recalcSortKeys = True
 
     def loadWatchlists(self):
         o = Struct(watchlists={})
@@ -362,40 +362,13 @@ class WatchlistWindow(QtGui.QMainWindow):
         guiSave(self.ui, gSettings)
 
     def onRefreshTable(self):
-
-        method = str(self.ui.bbOverFilter.currentText()).lower()
-        stepsSinceSqueeze = 'since squeeze' in method
-        squeezeDuration = 'squeeze duration' in method
-        comboBBVsLongerMA = 'longer ma' in method
-        comboBBFuncs = 'functions' in method
-        dailyVolume = 'volume' in method
-
-        def calcSortKey(stats):
-            ret = -1. # Filter it out
-            if dailyVolume:
-                ret = stats.volume
-            elif comboBBVsLongerMA:
-                for i in range(1):
-                    bb = stats.bbOver[i]
-                    if stats.bb[i] > stats.ma[i]:   # If in an uptrend
-                        bb *= -1                   # then favour oversold
-                    if bb < 0.7:
-                        return ret
-                ret = 1.
-            elif stepsSinceSqueeze:
-                ret = sum([1000000 - stats.stepsSinceSqueeze[i] + stats.squeezeDuration[i]/1000000.0 for i in range(len(stats.stepsSinceSqueeze))])
-            elif squeezeDuration:
-                ret = stats.squeezeDuration
-            else:
-                ret = stats.marketStr
-
-            return ret
-
         sharedD = self.sharedD
-        if len(self.results) == sharedD['idx']:
-            return# Model is up to date
-
         sharedD['pause'] = self.ui.pauseRefresh.isChecked()
+
+        if not self.recalcSortKeys and len(self.results) == sharedD['idx']:
+            return# Model is up to date
+        self.recalcSortKeys = False
+
         while len(self.results) < sharedD['idx']:
             marketStr = self.watchlist[len(self.results)]
             key = cacheKey(self.watchlistName, marketStr)
@@ -408,16 +381,14 @@ class WatchlistWindow(QtGui.QMainWindow):
                 data.__init__(market, existingDf=data)
             self.results.append(stats)
 
+        columns, multiColumns = self.activeColumns()
         results = []
         for stats in self.results:
-            if not hasattr(stats, 'bbOver'):# Test for one of the stats
-                continue
-            if method == 'no sorting':
-                stats.sortKey = -len(results)
-            else:
-                stats.sortKey = calcSortKey(stats)
-                if stats.sortKey < 0.:
-                    continue
+            stats.sortKey = ()
+            for col in self.sortColumns:
+                colName, subCol = getColumnNameAndSub(columns, multiColumns, col)
+                floatVal, strVal = getStatsValue(stats, colName, subCol)
+                stats.sortKey += (floatVal if floatVal != None else strVal,)
             results.append(stats)
 
         oldLen = self.model.rowCount(None)
@@ -425,6 +396,10 @@ class WatchlistWindow(QtGui.QMainWindow):
         newLen = self.model.rowCount(None)
         self.model.beginInsertRows(QtCore.QModelIndex(), oldLen, newLen-1)
         self.model.endInsertRows()
+
+        # Override the Stretch just for the marketStr column
+        mode = QtGui.QHeaderView.ResizeToContents if len(columns) and columns[0] == 'marketStr' else QtGui.QHeaderView.Stretch
+        self.ui.tableView.horizontalHeader().setResizeMode(0, mode)
 
         self.ui.statusbar.clearMessage()
         self.ui.statusbar.showMessage('Refreshed %i/%i' % (sharedD['idx'], len(self.watchlist)))
