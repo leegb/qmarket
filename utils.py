@@ -4,6 +4,9 @@ from pyqtgraph import QtCore, QtGui
 ROW,COL = 0,1
 OPEN_CLOSE_COLOR = ['red', 'green'] # close >= open
 
+app = QtGui.QApplication([])
+app.setWindowIcon(QtGui.QIcon('icon.png'))
+
 def debug():
     QtCore.pyqtRemoveInputHook()
     from IPython.core.debugger import Tracer; Tracer()()

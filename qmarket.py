@@ -946,9 +946,6 @@ class ChartWindow(QtGui.QMainWindow):
         self.charts.unset(cg.coord)
         #self.onMarketsChanged()
 
-app = QtGui.QApplication([])
-app.setWindowIcon(QtGui.QIcon('icon.png'))
-
 def show():
     QtGui.QApplication.instance().exec_()
 

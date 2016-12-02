@@ -190,6 +190,11 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         colName, subCol = getColumnNameAndSub(columns, multiColumns, section)
         if subCol != None:
             colName = (colName if subCol == 0 else '') + '\n' + ALL_TIMEFRAMES[subCol]
+        ascending = self.window.sortColumns.get(section, None)
+        if ascending == True:
+            colName += u'\u2191'#Up arrow
+        elif ascending == False:
+            colName += u'\u2193'#Down arrow
         return colName
 
     def data(self, index, role=Qt.DisplayRole):
@@ -234,7 +239,7 @@ class WatchlistWindow(QtGui.QMainWindow):
             setattr(self.ui, col + '_checkbox', checkbox)# for guiSave()
 
         self.sortedMarkets = []
-        self.sortColumns = []
+        self.sortColumns = {}
         self.recalcSortKeys = False
         self.selectedMarket = None
         self.ui.tableView.setAlternatingRowColors(True)
@@ -288,10 +293,13 @@ class WatchlistWindow(QtGui.QMainWindow):
     def onSelectColumns(self):
         # All information previously retrieved is invalid, including rowCount() and data()
         self.model.modelReset.emit()
-        self.sortColumns = []
+        self.sortColumns = {}
         self.recalcSortKeys = True
     def onHeaderSectionClicked(self, logicalIndex):
-        self.sortColumns = [logicalIndex]
+        oldValue = self.sortColumns.get(logicalIndex, False)
+        if not app.keyboardModifiers() & Qt.ControlModifier:
+            self.sortColumns = {}
+        self.sortColumns[logicalIndex] = not oldValue
         self.recalcSortKeys = True
 
     def loadWatchlists(self):
@@ -385,10 +393,16 @@ class WatchlistWindow(QtGui.QMainWindow):
         results = []
         for stats in self.results:
             stats.sortKey = ()
-            for col in self.sortColumns:
+            for col in sorted(self.sortColumns):
                 colName, subCol = getColumnNameAndSub(columns, multiColumns, col)
                 floatVal, strVal = getStatsValue(stats, colName, subCol)
-                stats.sortKey += (floatVal if floatVal != None else strVal,)
+                ascending = self.sortColumns[col]
+                if floatVal != None:
+                    stats.sortKey += (floatVal * 1. if ascending else -1.,)
+                else:
+                    strVal = strVal.lower()
+                    stats.sortKey += (''.join([chr(255-ord(c)) for c in strVal]) if ascending else strVal,)
+
             results.append(stats)
 
         oldLen = self.model.rowCount(None)
@@ -477,7 +491,6 @@ def main():
         if cmd in ['--refresh', '-r']:
             doRefresh()
         elif cmd == '--ig':
-            app = QtGui.QApplication([])# Needed for error message dialogs
             ig.importIGIndexEpicsWatchlist()
         elif cmd == '--polo':
             exchanges.savePoloniexMarkets()
