@@ -10,7 +10,7 @@ from chartdata import *
 import watchlist_ui # pyuic4 watchlist.ui > watchlist_ui.py
 
 CACHE_SECONDS = 60 * 60 # Re-download if longer than this
-ALL_TIMEFRAMES = ['1w', '1d', '4h', 'h']
+ALL_TIMEFRAMES = ['h', '4h', '1d', '1w']
 NUM_TIMEFRAME_COLS = 3
 
 WATCHLIST_SCREENER = 'Screener'
@@ -46,17 +46,17 @@ def calcStatsFromData(dataList, marketStr):
     stats = Struct(exchange=data.exchange.name,
                    marketStr=marketStr,
                    symbolKey=data.symbolKey,
-                   dataList=dataList)
+                   dataList=dataList,
+                   bb=[],
+                   bbOver=[],
+                   ma=[],
+                   adx=[],
+                   stepsSinceSqueeze=[],
+                   squeezeDuration=[],
+                   upTrend=[])
 
     if all([data.count() for data in dataList]):
         # Calculate stats:
-        stats.bb = []
-        stats.bbOver = []
-        stats.ma = []
-        stats.adx = []
-        stats.stepsSinceSqueeze = []
-        stats.squeezeDuration = []
-        stats.upTrend = []
         for data in dataList:
             bb = data.bbMean            # MA-20
             bbOver = data.bbOver
@@ -392,13 +392,16 @@ class WatchlistWindow(QtGui.QMainWindow):
         columns, multiColumns = self.activeColumns()
         results = []
         for stats in self.results:
+            if not stats.bb:
+                continue# Test that stats are valid - see calcStatsFromData()
+
             stats.sortKey = ()
             for col in sorted(self.sortColumns):
                 colName, subCol = getColumnNameAndSub(columns, multiColumns, col)
                 floatVal, strVal = getStatsValue(stats, colName, subCol)
                 ascending = self.sortColumns[col]
                 if floatVal != None:
-                    stats.sortKey += (floatVal * 1. if ascending else -1.,)
+                    stats.sortKey += (floatVal * (1. if ascending else -1.),)
                 else:
                     strVal = strVal.lower()
                     stats.sortKey += (''.join([chr(255-ord(c)) for c in strVal]) if ascending else strVal,)
