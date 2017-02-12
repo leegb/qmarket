@@ -221,42 +221,37 @@ class ChartData(pd.DataFrame):
 
         self.squeezeDuration = 0
         self.stepsSinceSqueeze = 0
+        self.squeezeState = 'Ended'
 
         # Decreasing width is an early sign the momentum will soon slowdown.
         bbWidth = self.bbUpper - self.bbLower
         kcWidth = self.kcUpper - self.kcLower
         bbSqueeze = (self.bbUpper < self.kcUpper) & (self.bbLower > self.kcLower)
 
-        if 1:
+        if 0:
             # Show rate of bollinger's expansion
             bbWidthLast = bbWidth.shift(1)
             momentum = (bbWidth - bbWidthLast) / bbWidthLast
             momentum[0:20] = 0.# Can be wild before the bollinger is finished
             momentum[momentum < 0.] = 0.
             momentum[self.close < self.bbMean] *= -1.
-
-            slowdownPrediction = None
         else:
             # Show real momentum
             momentum = self.close.diff(momentumN)
             momentum[momentum.isnull()] = 0.
             momentum = pd.rolling_mean(momentum, momentumMA)
 
-            width = bbWidth / kcWidth
-            slowdownPrediction = abs(width.shift(1)) > abs(width)
+        width = bbWidth / kcWidth
+        slowdownPrediction = abs(width.shift(1)) > abs(width)
 
         prevWidth = 0.
         for e in xrange(self.count()):
-            # Momentum histogram with faded colors when we are predicting a slowdown.
-            pen = [0,255,0] if momentum[e] >= 0. else [255,0,0]
-            if slowdownPrediction is not None and slowdownPrediction[e]:
-                pen = [c/2 for c in pen]
-            pensMomentum.append(pen)
-
             time = self.plotTimes[e]
 
             # Dots for BB squeeze
             if bbSqueeze[e]:
+                self.squeezeState = 'Squeeze'
+
                 if self.stepsSinceSqueeze:
                     self.stepsSinceSqueeze = 0
                     self.squeezeDuration = 0
@@ -264,8 +259,22 @@ class ChartData(pd.DataFrame):
                 self.squeezeDuration += 1
                 bbInside.append(time)
             else:
+                if self.squeezeState == 'Squeeze':
+                    self.squeezeState = 'Fired'
+
                 self.stepsSinceSqueeze += 1
                 bbOutside.append(time)
+
+            # Momentum histogram with faded colors when we are predicting a slowdown.
+            pen = [0,255,0] if momentum[e] >= 0. else [255,0,0]
+            if slowdownPrediction[e]:
+                pen = [c/2 for c in pen]
+                if self.squeezeState == 'Fired':
+                    self.squeezeState = 'Ended'
+            pensMomentum.append(pen)
+
+        if self.squeezeState == 'Fired':
+            self.squeezeState += ' (%i)' % self.stepsSinceSqueeze
 
         return momentum, pensMomentum, bbInside, bbOutside
 

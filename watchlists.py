@@ -10,7 +10,7 @@ from chartdata import *
 import watchlist_ui # pyuic4 watchlist.ui > watchlist_ui.py
 
 CACHE_SECONDS = 60 * 60 # Re-download if longer than this
-ALL_TIMEFRAMES = ['h', '4h', '1d', '1w']
+ALL_TIMEFRAMES = ['4h', '1d', '1w']
 NUM_TIMEFRAME_COLS = 3
 
 WATCHLIST_SCREENER = 'Screener'
@@ -42,7 +42,7 @@ def getScreenerWatchlist():
     return watchlist
 
 def calcStatsFromData(dataList, marketStr):
-    data = dataList[ALL_TIMEFRAMES.index('1d')]
+    data = dataList[0]
     stats = Struct(exchange=data.exchange.name,
                    marketStr=marketStr,
                    symbolKey=data.symbolKey,
@@ -51,6 +51,7 @@ def calcStatsFromData(dataList, marketStr):
                    bbOver=[],
                    ma=[],
                    adx=[],
+                   squeezeState=[],
                    stepsSinceSqueeze=[],
                    squeezeDuration=[],
                    upTrend=[])
@@ -70,6 +71,7 @@ def calcStatsFromData(dataList, marketStr):
             stats.adx.append(adx[last])
             stats.upTrend.append(data.upTrend[-1])
 
+            stats.squeezeState.append(data.squeezeState)
             stats.stepsSinceSqueeze.append(data.stepsSinceSqueeze)
             stats.squeezeDuration.append(data.squeezeDuration)
 
@@ -102,7 +104,7 @@ def procRefreshWatchlist(sharedD, watchlistName, watchlist):
         hour4 = hourly.resampleNew('4h')
         weekly = daily.resampleNew('1w')
 
-        dataList = [weekly, daily, hour4, hourly]
+        dataList = [hour4, daily, weekly]
         for data in dataList:
             data.calcIndicatorsMakePlots()
 
@@ -144,7 +146,7 @@ def getStatsValue(stats, colName, subCol):
     else:
         ret = getattr(stats, colName, '')[subCol]
         if type(ret) == str:
-            ret = None, str
+            ret = None, ret
         else:
             ret = ret, '{0:.2f}'.format(ret)
     return ret
@@ -166,6 +168,7 @@ class WatchlistModel(QtCore.QAbstractTableModel):
     ]
     multiColumns = [
         'adx',
+        'squeezeState',
         'stepsSinceSqueeze',
         'upTrend',
         #'squeezeDuration',
@@ -207,17 +210,21 @@ class WatchlistModel(QtCore.QAbstractTableModel):
 
         ret = None
         stats = self.window.sortedMarkets[row]
+        numVal, strVal = getStatsValue(stats, colName, subCol)
         if role == Qt.DisplayRole:
-            floatVal, strVal = getStatsValue(stats, colName, subCol)
             ret = strVal
         elif role == Qt.ForegroundRole:
             if colName == 'stepsSinceSqueeze':
-                if not stats.stepsSinceSqueeze[subCol]:
+                if not numVal:
                     ret = QtGui.QColor(QtCore.Qt.red)
         elif role == Qt.BackgroundRole:
             if colName == 'upTrend':
                 ret = QtGui.QColor([QtCore.Qt.red, QtCore.Qt.cyan][stats.upTrend[subCol]])
-
+            elif colName == 'squeezeState':
+                if strVal == 'Squeeze':
+                    ret = QtGui.QColor(QtCore.Qt.red)
+                elif 'Fired' in strVal:
+                    ret = QtGui.QColor(QtCore.Qt.cyan)
         return QtCore.QVariant(ret)
 
 # Return either the watchlist or one of its calculated stats
@@ -398,10 +405,10 @@ class WatchlistWindow(QtGui.QMainWindow):
             stats.sortKey = ()
             for col in sorted(self.sortColumns):
                 colName, subCol = getColumnNameAndSub(columns, multiColumns, col)
-                floatVal, strVal = getStatsValue(stats, colName, subCol)
+                numVal, strVal = getStatsValue(stats, colName, subCol)
                 ascending = self.sortColumns[col]
-                if floatVal != None:
-                    stats.sortKey += (floatVal * (1. if ascending else -1.),)
+                if numVal != None:
+                    stats.sortKey += (numVal * (1. if ascending else -1.),)
                 else:
                     strVal = strVal.lower()
                     stats.sortKey += (''.join([chr(255-ord(c)) for c in strVal]) if ascending else strVal,)
