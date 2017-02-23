@@ -273,7 +273,7 @@ class ChartData(pd.DataFrame):
                     self.squeezeState = 'Ended'
             pensMomentum.append(pen)
 
-        if self.squeezeState == 'Fired':
+        if self.squeezeState != 'Squeeze':
             self.squeezeState += ' (%i)' % self.stepsSinceSqueeze
 
         return momentum, pensMomentum, bbInside, bbOutside

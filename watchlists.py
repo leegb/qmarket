@@ -143,6 +143,8 @@ def getStatsValue(stats, colName, subCol):
         ret = stats.volume, strVolume(stats.volume)
     elif colName == 'upTrend':
         ret = None, ['SHORT', 'LONG'][stats.upTrend[subCol]]
+    elif colName == 'stepsSinceSqueeze':
+        ret = stats.stepsSinceSqueeze[subCol], stats.squeezeState[subCol]
     else:
         ret = getattr(stats, colName, '')[subCol]
         if type(ret) == str:
@@ -168,7 +170,6 @@ class WatchlistModel(QtCore.QAbstractTableModel):
     ]
     multiColumns = [
         'adx',
-        'squeezeState',
         'stepsSinceSqueeze',
         'upTrend',
         #'squeezeDuration',
@@ -213,14 +214,11 @@ class WatchlistModel(QtCore.QAbstractTableModel):
         numVal, strVal = getStatsValue(stats, colName, subCol)
         if role == Qt.DisplayRole:
             ret = strVal
-        elif role == Qt.ForegroundRole:
-            if colName == 'stepsSinceSqueeze':
-                if not numVal:
-                    ret = QtGui.QColor(QtCore.Qt.red)
+        #elif role == Qt.ForegroundRole:
         elif role == Qt.BackgroundRole:
             if colName == 'upTrend':
                 ret = QtGui.QColor([QtCore.Qt.red, QtCore.Qt.cyan][stats.upTrend[subCol]])
-            elif colName == 'squeezeState':
+            elif colName == 'stepsSinceSqueeze':
                 if strVal == 'Squeeze':
                     ret = QtGui.QColor(QtCore.Qt.red)
                 elif 'Fired' in strVal:
@@ -409,7 +407,7 @@ class WatchlistWindow(QtGui.QMainWindow):
                 numVal, strVal = getStatsValue(stats, colName, subCol)
                 ascending = self.sortColumns[col]
                 if numVal != None:
-                    stats.sortKey += (numVal * (1. if ascending else -1.),)
+                    stats.sortKey += (numVal * (-1. if ascending else 1.),)
                 else:
                     strVal = strVal.lower()
                     stats.sortKey += (''.join([chr(255-ord(c)) for c in strVal]) if ascending else strVal,)
