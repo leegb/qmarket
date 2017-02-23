@@ -311,7 +311,7 @@ class WatchlistWindow(QtGui.QMainWindow):
 
     def loadWatchlists(self):
         o = Struct(watchlists={})
-        def addWatchlist(fromExchanges, name=None):
+        def addWatchlistFromEx(fromExchanges, name=None):
             fromExchanges = [exchanges.findExchange(e) for e in wrapList(fromExchanges)]
 
             name = name or fromExchanges[0].name
@@ -319,18 +319,19 @@ class WatchlistWindow(QtGui.QMainWindow):
             for exchange in fromExchanges:
                 o.watchlists[name] += [s + ' / ' + exchange.name for s in exchange.symbols]
 
-        def addRuntimeWatchlist(name):
-            o.watchlists[name] = []
+        addWatchlistFromEx(['Google', 'Yahoo'], 'Builtin')
+        addWatchlistFromEx('Poloniex')
 
-        addWatchlist(['Google', 'Yahoo'], 'Builtin')
-        addWatchlist('Poloniex')
-        addRuntimeWatchlist(ig.WATCHLIST_OPEN_ORDERS)
-        addRuntimeWatchlist(WATCHLIST_SCREENER)
+        def addWatchlistFromList(name, List=[]):
+            o.watchlists[name] = List
 
-        for name in ig.IG_INDEX_MAP.values():
+        addWatchlistFromList(ig.WATCHLIST_OPEN_ORDERS)
+        addWatchlistFromList(WATCHLIST_SCREENER)
+
+        for name in ig.IG_WATCHLISTS:
             watchlist = gCache.get(cacheKey(name))
             if watchlist:
-                o.watchlists[name] = watchlist.value
+                addWatchlistFromList(name, watchlist.value)
 
         self.watchlists = o.watchlists
 

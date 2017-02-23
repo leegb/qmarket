@@ -137,6 +137,9 @@ IG_INDEX_MAP = {
     'NYSE':     IG_INDEX_WATCHLIST + 'Shares - US',
 }
 
+IG_MISC = IG_INDEX_WATCHLIST + 'Misc'
+IG_WATCHLISTS = list(set(IG_INDEX_MAP.values())) + [IG_MISC]
+
 def setWatchlist(name, watchlist):
     watchlist = [str(s) for s in watchlist]
     gCache.set(watchlists.cacheKey(name), watchlist)
@@ -181,42 +184,43 @@ def importIGIndexCSVWatchlist(filename):
     for name, watchlist in allWatchlists.items():
         setWatchlist(name, watchlist)
 
+def nagivateIGNodes(watchlistName, topLevelNodes):
+    watchlist = gCache.get(watchlists.cacheKey(watchlistName))
+    watchlist = watchlist.value if watchlist else []
+    def getNode(id):
+        url = 'marketnavigation'
+        if id:
+            url += '/' + id
+        content = callAPI(url)
+        time.sleep(2) # Per-app non-trading requests per minute: 60 - https://labs.ig.com/faq
+
+        for node in content['nodes'] or []:
+            name = node['name']
+            if not id and (name not in topLevelNodes):
+                continue
+
+            if any([len(name) >= 5 and name in s for s in watchlist]):
+                print 'Already have ', name, ', skipping'
+                continue
+
+            subNode = getNode(node['id'])
+
+        # Now that we have the market node, save the DFB version
+        for market in content.get('markets') or []:
+            if market['expiry'] != 'DFB':
+                continue# Just get the non-expiring one
+
+            marketStr = str(market['instrumentName']) + '|' + str(market['epic']) + '/IG'
+            print 'Added: ', marketStr
+
+            watchlist.append(marketStr)
+            setWatchlist(watchlistName, watchlist)
+
+    getNode(None)
+
 def importIGIndexEpicsWatchlist():
-
-    #TOP_LEVEL_NODES = ['Shares - UK']
-    TOP_LEVEL_NODES = ['Shares - US']
-
-    for topLevelNode in TOP_LEVEL_NODES:
-        watchlistName = IG_INDEX_WATCHLIST + topLevelNode
-        watchlist = gCache.get(watchlists.cacheKey(watchlistName))
-        watchlist = watchlist.value if watchlist else []
-        def getNode(id):
-            url = 'marketnavigation'
-            if id:
-                url += '/' + id
-            content = callAPI(url)
-            time.sleep(2) # Per-app non-trading requests per minute: 60 - https://labs.ig.com/faq
-
-            for node in content['nodes'] or []:
-                name = node['name']
-                if not id and (name not in TOP_LEVEL_NODES):
-                    continue
-
-                if any([len(name) >= 5 and name in s for s in watchlist]):
-                    print 'Already have ', name, ', skipping'
-                    continue
-
-                subNode = getNode(node['id'])
-
-            # Now that we have the market node, save the DFB version
-            for market in content.get('markets') or []:
-                if market['expiry'] != 'DFB':
-                    continue# Just get the non-expiring one
-
-                marketStr = str(market['instrumentName']) + '|' + str(market['epic']) + '/IG'
-                print 'Added: ', marketStr
-
-                watchlist.append(marketStr)
-                setWatchlist(watchlistName, watchlist)
-
-        getNode(None)
+    nagivateIGNodes(IG_MISC,
+        ['Indices',
+        'Forex',
+        'Commodities Metals Energies',
+        'Bitcoin'])

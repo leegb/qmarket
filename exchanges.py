@@ -378,6 +378,7 @@ IGINDEX_DATETIME_FORMAT = '%Y/%m/%d/%H/%M/%S'
 class _8(ExchangeWithSearch):
     name = '&IG'
     filterGaps = True
+    positions = {}
     def __init__(self):
         ExchangeWithSearch.__init__(self)
 
