@@ -277,6 +277,11 @@ class WatchlistWindow(QtGui.QMainWindow):
 
         self.procRefresh = None
         self.ui.watchlistName.currentIndexChanged.connect(self.onWatchlistSelected)
+        def onFilter():
+            self.ui.filterEdit.setFocus()
+            self.ui.filterEdit.selectAll()
+        QtGui.QShortcut(QtGui.QKeySequence('Ctrl+F'), self, onFilter)
+        self.ui.filterEdit.textChanged.connect(self.onSelectColumns)
 
         self.model = WatchlistModel(self)
         self.ui.tableView.setModel(self.model)
@@ -396,10 +401,13 @@ class WatchlistWindow(QtGui.QMainWindow):
             self.results.append(stats)
 
         columns, multiColumns = self.activeColumns()
+        filterEdit = str(self.ui.filterEdit.text()).lower()
         results = []
         for stats in self.results:
             if not stats.bb:
                 continue# Test that stats are valid - see calcStatsFromData()
+            if filterEdit and filterEdit not in stats.marketStr.lower():
+                continue
 
             stats.sortKey = ()
             for col in sorted(self.sortColumns):
