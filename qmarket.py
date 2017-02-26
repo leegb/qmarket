@@ -274,7 +274,7 @@ class PricesViewBox(pg.ViewBox):
             if not data.count():
                 return
 
-            resampleTable = {'4&h': ['m', 'h'], '1&w': ['d'], '1&d': ['h']}
+            resampleTable = {'4&h': ['m', 'h'], '1&w': ['d'], '1&M': ['d'], '1&d': ['h']}
             for toTime, fromTime in resampleTable.items():
                 if data.timeframe[-1] in fromTime:
                     addAction(toTime, resampleMenu,
@@ -652,26 +652,27 @@ class ChartGroup():
 
         if plotType == PLOT_ORDERWALL:
             axisItems = {'bottom': SuffixVolumeAxis(orientation='bottom')}
-        else:
+        elif plotType == PLOT_MAIN:
             dateAxis = DateAxis(orientation='bottom')
             dateAxis.cg = self
             axisItems = {'bottom': dateAxis}
-            if plotType == PLOT_VOLUME:
-                for axis in ['left', 'right']:
-                    axisItems[axis] = SuffixVolumeAxis(orientation=axis)
+        elif plotType == PLOT_VOLUME:
+            axisItems = {'right': SuffixVolumeAxis(orientation='right')}
+        else:
+            axisItems = {}
 
         plt = pg.PlotItem(viewBox=vb,
                           axisItems=axisItems)
 
+        plt.showAxis('left', False)
         plt.showGrid(x=True, y=True, alpha=0.3)
         if plotType == PLOT_ORDERWALL:
             plt.setTitle('Orderbook')
-            plt.showAxis('left', False)
             plt.showAxis('right', False)
             plt.setYLink(self.mainPlot())
         else:
             plt.showAxis('right')
-            if plotType == PLOT_EXTRA_TA:
+            if plotType != PLOT_MAIN:
                 plt.showAxis('bottom', False)
 
         if plotType in [PLOT_MAIN, PLOT_EXTRA_TA]:
@@ -750,7 +751,6 @@ class ChartGroup():
 
         mainPlot = self.createPlot(PLOT_MAIN)
         mainPlot.setTitle(title)
-        mainPlot.showAxis('left', self.coord[COL] == 0)
 
         row = 0
         self.widget.addItem(mainPlot, row, col=0)
@@ -851,9 +851,9 @@ class ChartWindow(QtGui.QMainWindow):
         self.setWindowTitle('qmarket')
         cw = QtGui.QWidget()
         self.setCentralWidget(cw)
-        layout = QtGui.QGridLayout()
-        zeroLayoutMargins(layout)
-        cw.setLayout(layout)
+        self.layout = QtGui.QGridLayout()
+        zeroLayoutMargins(self.layout)
+        cw.setLayout(self.layout)
         self.restoreGeometry(gSettings.value('geometry').toByteArray())
         QtGui.QShortcut(QtGui.QKeySequence('Q'), self, app.closeAllWindows)
         QtGui.QShortcut(QtGui.QKeySequence('W'), self, self.close)
@@ -865,7 +865,6 @@ class ChartWindow(QtGui.QMainWindow):
         pal.setColor(QtGui.QPalette.Window, Qt.black)
         self.setPalette(pal)
 
-        self.layout = layout
         self.closeEvent = self.closeEvent
         self.mouseOverChartGroup = None
 
@@ -920,9 +919,6 @@ class ChartWindow(QtGui.QMainWindow):
             if not chart0 or changedCG is chart0:
                 continue
 
-            if changedCG.coord[COL] >= 2:# FIXME: When showing hourly alongside daily and weekly, dont link the hourly
-                continue                 # as it doesnt have enough data.
-
             chart0 = chart0.mainPlot()
             changedPlot.setXLink(chart0)
             if rowOrCol == COL:
@@ -937,14 +933,15 @@ class ChartWindow(QtGui.QMainWindow):
             self.layout.addWidget(cg.widget, *cg.coord)
             cg.widget.scene().sigMouseMoved.connect(lambda _: self.focusOnChartGroup(cg))
             self.mouseOverChartGroup = cg
+            self.layout.setColumnStretch(coord[1], 1 if coord[1] else 2)
 
         cg.changeMarket(market)
 
     def removeChart(self, cg):
+        self.layout.setColumnStretch(cg.coord[1], 0)
         self.layout.removeWidget(cg.widget)
         cg.widget.deleteLater()
         self.charts.unset(cg.coord)
-        #self.onMarketsChanged()
 
 def show():
     QtGui.QApplication.instance().exec_()

@@ -10,7 +10,7 @@ from chartdata import *
 import watchlist_ui # pyuic4 watchlist.ui > watchlist_ui.py
 
 CACHE_SECONDS = 60 * 60 # Re-download if longer than this
-ALL_TIMEFRAMES = ['4h', '1d', '1w']
+ALL_TIMEFRAMES = ['1d', '1w', '1M']
 NUM_TIMEFRAME_COLS = 3
 
 WATCHLIST_SCREENER = 'Screener'
@@ -85,12 +85,16 @@ def procRefreshWatchlist(sharedD, watchlistName, watchlist):
         appendMinuteData = market.exchange.appendMinuteData
         resampleMinuteData = False
 
-        market.timeframe = 'h'
-        hourly = ChartData(market)
+        if '4h' in ALL_TIMEFRAMES:
+            market.timeframe = 'h'
+            hourly = ChartData(market)
+        else:
+            hourly = None
+
         market.timeframe = 'd'
         daily = ChartData(market)
 
-        dataList = [hourly, daily]
+        dataList = [daily] + ([] if hourly is None else [hourly])
         for data in dataList:
             data.downloadAndParse()
 
@@ -101,17 +105,19 @@ def procRefreshWatchlist(sharedD, watchlistName, watchlist):
             for data in dataList:
                 data.appendMinuteData(minuteData)
 
-        hour4 = hourly.resampleNew('4h')
         weekly = daily.resampleNew('1w')
+        monthly = daily.resampleNew('1M')
+        dataList = [daily, weekly, monthly]
+        if hourly is not None:
+            hour4 = hourly.resampleNew('4h')
+            dataList = [hour4] + dataList
 
-        dataList = [hour4, daily, weekly]
         for data in dataList:
             data.calcIndicatorsMakePlots()
-
         stats = calcStatsFromData(dataList, marketStr)
 
         stats.volume = 0.
-        if hourly.isOHLC:
+        if hourly is not None and hourly.isOHLC:
             # Resample hourly to get 24-hour volume
             data = hourly.resampleNew('1d')
             last = data.count()-1
