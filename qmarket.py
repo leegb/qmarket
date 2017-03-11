@@ -750,6 +750,7 @@ class ChartGroup():
                 data.symbolKey + ' ' + data.timeframe
 
         mainPlot = self.createPlot(PLOT_MAIN)
+        mainPlot.titleLabel.updateMin = lambda: None # Override the LabelItem.setText() setting a minimum width, which prevents chart from scaling.
         mainPlot.setTitle(title)
 
         row = 0
@@ -902,7 +903,8 @@ class ChartWindow(QtGui.QMainWindow):
 
     def onMarketsChanged(self, changedCG):
         changedPlot = changedCG.mainPlot()
-        changedPlot.autoRange()
+        if changedCG.coord[1] == 0:
+            changedPlot.setRange(yRange=(0, 0))# Will be overriden by findYRange
 
         titleStr = ''
         for rowOrCol in range(2):

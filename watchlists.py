@@ -459,8 +459,15 @@ class WatchlistWindow(QtGui.QMainWindow):
         # Create candlestick pictures on list mouseover to speed up selection.
         for text in self.getChartsToShow():
             data = stats.dataList[ALL_TIMEFRAMES.index(text)]
+            data.calcIndicatorsMakePlots()
             for isVolume in range(2):
                 data.createCandlestick(isVolume, self.cg.showTrendBars)
+
+        if event.modifiers() & Qt.ControlModifier:
+            # Automatically select the hovered list item, to save clicking.
+            self.ui.tableView.setSelection(QtCore.QRect(pos, pos),
+                QtGui.QItemSelectionModel.ClearAndSelect |
+                QtGui.QItemSelectionModel.Rows)
 
     def listSelectionChanged(self, selected, deselected):
         indexes = selected.indexes()

@@ -171,6 +171,7 @@ class ChartData(pd.DataFrame):
         self.hasVolume = self.volume.max() > 0.
 
         self.candleStickPictures = [[None]*2, [None]*2]
+        self.calculatedIndicators = False
 
     def getOHLCV(self, e):
         return self.open[e], self.high[e], self.low[e], self.close[e], self.volume[e]
@@ -312,6 +313,9 @@ class ChartData(pd.DataFrame):
         if not self.count():
             return
 
+        if self.calculatedIndicators:
+            return
+
         class TAPlot():
             def __init__(self, **kwds):
                 self.extraTA = False
@@ -426,6 +430,8 @@ class ChartData(pd.DataFrame):
                 symbolBrush=(255,0,0),
                 **bbCommon),
         ]
+
+        self.calculatedIndicators = True
 
     # data must have fields: time, open, close, min, max, volume
     def createCandlestick(self, isVolume, showTrendBars):
